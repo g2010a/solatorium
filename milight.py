@@ -26,7 +26,7 @@ parser.add_argument("-m", "--macro", help="the macro to execute",
                         "white_sunrise"
                      ])
 parser.add_argument("group", help="lamp group receiving the command", type=int, choices=[0,1,2,3,4])
-parser.add_argument("-d", "--duration", help="(seconds) if applicable, how long a macro should last")
+parser.add_argument("-d", "--duration", type=int, help="(seconds) if applicable, how long a macro should last")
 parser.add_argument("--debug", help="shorten transition times for debugging purposes", action="store_true")
 parser.add_argument("-v", "--verbosity", action="count", default=0)
 args = parser.parse_args()
@@ -195,17 +195,39 @@ def set_color_rgb(group=None, rgb=(1,1,1)):
         sleep(INTRA_COMMAND_SLEEP_TIME)
         set_brightness(group)#, lum)
 
-def white_sunrise(group=None, duration=60*5): #default duration is 5 mins
+def white_sunrise(group=None): #default duration is 5 mins
     if group is None:
         group = args.group
     if args.debug is True:
-        duration=30
-    logger(1, "Starting white sunrise in group %s"%(group))
+        duration=20
+    else:
+        if args.duration is None:
+            duration = 60*5             # default duration is 5 minutes
+        else:
+            duration = args.duration
+    
+    logger(1, "Starting white sunrise in group %s with duration %s (seconds)"%(group, duration))
     set_white(group)
+    sleep(INTRA_COMMAND_SLEEP_TIME)
     set_brightness(group, 0)
-    for x in range(0,100):
+    sleep(INTRA_COMMAND_SLEEP_TIME)
+    # Short duration of times may require less than 100 steps due to the INTRA_COMMAND_SLEEP_TIME
+    # so let's calculate how many steps we need
+    min_duration = 100*3*INTRA_COMMAND_SLEEP_TIME
+    logger(1, min_duration)
+    if duration < min_duration:
+        step = int(round(min_duration / duration))
+        total_steps = 100/step
+        logger(2, "Duration (%s) is shorter than min_duration (%s), setting step to %s (total_steps=%s)"%(duration, min_duration, step, total_steps))
+    else:
+        step = 1
+        total_steps = 100
+    
+    # Send commands
+    for x in range(0,100,step):
+        logger(3, "Step %s"%(x))
         set_brightness(group, _ease(x/100, 'sin'))
-        sleep(max(duration/100, INTRA_COMMAND_SLEEP_TIME))
+        sleep(max(duration/total_steps, INTRA_COMMAND_SLEEP_TIME))
 
 # MAIN LOGIC
 commands = {
