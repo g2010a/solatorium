@@ -8,6 +8,7 @@ import socket               # socket communications
 from time import sleep      # sleep without doing anything for a while
 import colorsys             # rgb to hls conversions 
 import math                 # mathematical operations
+import random               # generate random numbers
 
 # DEFAULTS
 UDP_IP="192.168.2.100" #this is the IP of the wifi bridge, or 255.255.255.255 for UDP broadcast
@@ -16,20 +17,20 @@ INTRA_COMMAND_SLEEP_TIME=1/10 # 100ms=100(1s/1000)
 
 # ARGUMENTS FROM COMMANDLINE
 parser = argparse.ArgumentParser()
-parser.add_argument("-m", "--macro", help="the macro to execute",
+parser.add_argument("macro", help="the macro to execute",
                     choices=[
                         "on", 
                         "off",
                         "brightness",
                         "set_white",
                         "set_color",
-                        "torch"
+                        "torch",
                         "white_sunrise"
                      ])
-parser.add_argument("group", help="lamp group receiving the command", type=int, choices=[0,1,2,3,4])
+parser.add_argument("-g", "--group", help="lamp group receiving the command", type=int, choices=[0,1,2,3,4])
 parser.add_argument("-d", "--duration", type=int, help="(seconds) if applicable, how long a macro should last")
 parser.add_argument("--debug", help="shorten transition times for debugging purposes", action="store_true")
-parser.add_argument("-p", "--param", help="Additional argument for special functions (e.g. color string for set_color)")
+parser.add_argument("-p", "--param", help="Additional argument for special functions (e.g. color string for set_color, wind strength for torch)")
 parser.add_argument("-v", "--verbosity", action="count", default=0)
 args = parser.parse_args()
 
@@ -153,8 +154,8 @@ def set_brightness(group=None, percent=1):
         group = args.group
     scaled=2 + (percent * (27-2))
     brightness=int(round(scaled))
-    logger(2, "Setting brightness of group %s to %s%%, scaled [2-27]: %s"%(group, percent, brightness))
-
+    logger(2, "Setting brightness of group %s to %s%%, scaled [2-27]: %s"%(group, percent*100, brightness))
+    
     bcast(SIMPLE_CODE_TEMPLATE.format(_get_on_prefix(group)))
     sleep(INTRA_COMMAND_SLEEP_TIME)
     bcast(BRIGHTNESS_CODE_TEMPLATE.format(chr(brightness)))
@@ -172,25 +173,29 @@ def set_color(group=None, percent=1):
 def set_color_rgb(group=None, rgb=(1,1,1)):
     if group is None:
         group = args.group
+    if args.param is not None:
+        rgb = map(float, args.param.split(','))
     hls=colorsys.rgb_to_hls(rgb[0], rgb[1], rgb[2])
     # Hue begins at RED in python but at VIOLET in the bulbs,
-    # we therefore rotate the value 90 degrees
-    # Bulbs move counter-clockwise in the traditional wheel,
-    # going from violet to green to red; we therefore invert the value
+    # we therefore rotate the value to more-or-less match.
     hue=hls[0]+(115/360) # Rotate hue
+    
     if(hue>1):
         hue=hue-1
+    
+    # Bulbs move counter-clockwise in the traditional wheel,
+    # going from violet to green to red; we therefore invert the value
     hue=1-hue # invert the value
+    
     lum=hls[1]
     sat=hls[2]
-    logger(2, hue)
-    logger(2, lum)
-    logger(2, sat)
-    if sat < 0.3 or lum > 0.7:
+    logger(2, "HSL: %s, %s, %s"%(hue, lum, sat))
+    if sat < 0.3 or lum > 0.75:
         # basically a white color
+        logger(2, "Too luminous or desaturated, switching to white")
         set_white(group)
         sleep(INTRA_COMMAND_SLEEP_TIME)
-        set_brightness(group, lum*0.7) # lower the brightness since WHITE is more powerful
+        set_brightness(group, lum*0.65) # lower the brightness since WHITE is more powerful
     else:
         # set an unfortunately very saturated color
         set_color(group, hue)
@@ -236,12 +241,24 @@ def white_sunrise(group=None):
         logger(3, "Step %s"%(x))
         set_brightness(group, _ease(x/100, 'sin'))
         sleep(max(duration/total_steps, INTRA_COMMAND_SLEEP_TIME))
-
-def torch(group=None): 
+        
+def torch(group=None, wind=5): 
     # Simulates a flickering torch
     if group is None:
         group = args.group
+    if args.param is not None:
+        wind = args.param
     
+    def flicker():
+        return max(random.random() / WIND, INTRA_COMMAND_SLEEP_TIME)
+        
+    def brightness():
+        return random.randint(5,100)
+    
+    set_color_rgb(group, (1,0.5,0))
+    while True:
+        set_brightness(group, brightness()/100)
+        sleep(flicker())
     
 # MAIN LOGIC
 commands = {
