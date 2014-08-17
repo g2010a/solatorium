@@ -236,11 +236,13 @@ def white_sunrise(group=None):
         step = 1
         total_steps = 100
     
-    # Send commands
+    # Increase brightness
     for x in range(0,100,step):
         logger(3, "Step %s"%(x))
         set_brightness(group, _ease(x/100, 'sin'))
         sleep(max(duration/total_steps, INTRA_COMMAND_SLEEP_TIME))
+        
+    # 
         
 def torch(group=None, wind=5): 
     # Simulates a flickering torch
@@ -250,7 +252,7 @@ def torch(group=None, wind=5):
         wind = args.param
     
     def flicker():
-        return max(random.random() / WIND, INTRA_COMMAND_SLEEP_TIME)
+        return max(random.random() / wind, INTRA_COMMAND_SLEEP_TIME)
         
     def brightness():
         return random.randint(5,100)
