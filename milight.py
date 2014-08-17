@@ -152,6 +152,8 @@ def set_brightness(group=None, percent=1):
     # we convert percent to the actual scale [2-27]
     if group is None:
         group = args.group
+        if args.param is not None:
+            percent = int(args.param)/100
     scaled=2 + (percent * (27-2))
     brightness=int(round(scaled))
     logger(2, "Setting brightness of group %s to %s%%, scaled [2-27]: %s"%(group, percent*100, brightness))
@@ -173,8 +175,8 @@ def set_color(group=None, percent=1):
 def set_color_rgb(group=None, rgb=(1,1,1)):
     if group is None:
         group = args.group
-    if args.param is not None:
-        rgb = map(float, args.param.split(','))
+        if args.param is not None:
+            rgb = map(float, args.param.split(','))
     hls=colorsys.rgb_to_hls(rgb[0], rgb[1], rgb[2])
     # Hue begins at RED in python but at VIOLET in the bulbs,
     # we therefore rotate the value to more-or-less match.
@@ -219,15 +221,16 @@ def white_sunrise(group=None):
             duration = args.duration
     
     logger(1, "Starting white sunrise in group %s with duration %s (seconds)"%(group, duration))
+    set_brightness(group, 0)            # dim, in case lamp is on
+    sleep(INTRA_COMMAND_SLEEP_TIME)
     set_white(group)
     sleep(INTRA_COMMAND_SLEEP_TIME)
-    set_brightness(group, 0)
-    sleep(INTRA_COMMAND_SLEEP_TIME)
+    set_brightness(group, 0)            # dim, in case lamp was off and missed first command
+    sleep(INTRA_COMMAND_SLEEP_TIME) 
     
     # Short durations may require less than 100 steps due to the INTRA_COMMAND_SLEEP_TIME
     # so let's calculate how many steps we need
     min_duration = 100*3*INTRA_COMMAND_SLEEP_TIME
-    logger(1, min_duration)
     if duration < min_duration:
         step = int(round(min_duration / duration))
         total_steps = 100/step
@@ -242,14 +245,24 @@ def white_sunrise(group=None):
         set_brightness(group, _ease(x/100, 'sin'))
         sleep(max(duration/total_steps, INTRA_COMMAND_SLEEP_TIME))
         
-    # 
+    # Hold max brightness for 5 minutes
+    sleeptime=5*60
+    if (args.debug is not None):
+        sleeptime=10                # sleep after 10 seconds when debugging
+        
+    sleep(sleeptime)
+    
+    # Turn light off
+    set_brightness(group, 1)        # dim so there is no bright flash next time
+    sleep(INTRA_COMMAND_SLEEP_TIME)
+    turn_off(group)
         
 def torch(group=None, wind=5): 
     # Simulates a flickering torch
     if group is None:
         group = args.group
     if args.param is not None:
-        wind = args.param
+        wind = int(args.param)
     
     def flicker():
         return max(random.random() / wind, INTRA_COMMAND_SLEEP_TIME)
