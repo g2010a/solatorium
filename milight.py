@@ -245,14 +245,27 @@ def white_sunrise(group=None):
         set_brightness(group, _ease(x/100, 'sin'))
         sleep(max(duration/total_steps, INTRA_COMMAND_SLEEP_TIME))
         
-    # Hold max brightness for 5 minutes
-    sleeptime=5*60
+    # Hold max brightness for 10 minutes
+    sleeptime=10*60
     if (args.debug is not None):
         sleeptime=10                # sleep after 10 seconds when debugging
         
     sleep(sleeptime)
     
     # Turn light off
+    off_duration = 10
+    if off_duration < min_duration:
+        step = int(round(min_duration / duration))
+        total_steps = 99/step
+    else:
+        step = 1
+        total_steps = 99
+    
+    for x in range(0,100,step):
+        logger(3, "Step %s"%(x))
+        set_brightness(group, 1 - x/100 )
+        sleep(max(duration/total_steps, INTRA_COMMAND_SLEEP_TIME))
+    
     set_brightness(group, 1)        # dim so there is no bright flash next time
     sleep(INTRA_COMMAND_SLEEP_TIME)
     turn_off(group)
