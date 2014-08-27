@@ -246,7 +246,7 @@ def white_sunrise(group=None):
         sleep(max(duration/total_steps, INTRA_COMMAND_SLEEP_TIME))
         
     # Hold max brightness for 10 minutes
-    sleeptime=10*60
+    sleeptime=5*60
     if (args.debug is not None):
         sleeptime=10                # sleep after 10 seconds when debugging
         
@@ -255,7 +255,7 @@ def white_sunrise(group=None):
     # Turn light off
     off_duration = 10
     if off_duration < min_duration:
-        step = int(round(min_duration / duration))
+        step = max(int(round(min_duration / duration)),1)
         total_steps = 99/step
     else:
         step = 1
