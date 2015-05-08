@@ -1,3 +1,4 @@
+#!/usr/bin/python
 #
 # Macros to control milight/limitlessled lamps
 #
@@ -6,7 +7,7 @@ from __future__ import division # force integer divisions to return floats inste
 import sys, argparse        # command line arguments
 import socket               # socket communications
 from time import sleep      # sleep without doing anything for a while
-import colorsys             # rgb to hls conversions 
+import colorsys             # rgb to hls conversions
 import math                 # mathematical operations
 import random               # generate random numbers
 
@@ -19,12 +20,13 @@ INTRA_COMMAND_SLEEP_TIME=1/10 # 100ms=100(1s/1000)
 parser = argparse.ArgumentParser()
 parser.add_argument("macro", help="the macro to execute",
                     choices=[
-                        "on", 
+                        "on",
                         "off",
                         "brightness",
                         "set_white",
                         "set_color",
                         "torch",
+                        "faketv",
                         "white_sunrise"
                      ])
 parser.add_argument("-g", "--group", help="lamp group receiving the command", type=int, choices=[0,1,2,3,4])
@@ -50,7 +52,7 @@ COLOR_CODE_TEMPLATE="\x40{}\x55"
 def logger(verbosity, statement):
     if (args.verbosity >= verbosity):
         print statement
-    
+
 def bcast(cmd):
     sock.sendto(cmd, (UDP_IP, UDP_PORT))
 
@@ -107,7 +109,7 @@ def _ease(t, etype='linear'):
             u=t-1.5/2.75
             return 7.5625*u*u+.75
         elif t<2.5/2.75:
-            u=t-2.25/2.75    
+            u=t-2.25/2.75
             return 7.5625*u*u+.9375
         else:
             u=t-2.625/2.75
@@ -270,24 +272,57 @@ def white_sunrise(group=None):
     sleep(INTRA_COMMAND_SLEEP_TIME)
     turn_off(group)
         
-def torch(group=None, wind=5): 
+def _flickerit(group=None, wind=5, mode="color"):
+    # Flickers the lamp
+    #
+    # @param {group} A lamp group to affect
+    # @param {wind} How flickery to make the effect (little 1 - 10 lots)
+    # @param {mode} Color scheme [tv, torch]
+
+    def flicker():
+        return max(random.random() / wind, INTRA_COMMAND_SLEEP_TIME)
+
+    def brightness():
+        return random.randint(5,100)
+
+    def color():
+        return (random.randint(0,100)/100, random.randint(0,100)/100, random.randint(0,100)/100)
+        
+    if mode is "torch":
+        set_color_rgb(group, (1,0.5,0))
+        while True:
+            sleep(flicker())
+            set_brightness(group, brightness()/100)
+    
+    elif mode is "tv":
+        while True:
+            sleep(flicker())
+            set_color_rgb(group, color())
+            sleep(flicker())
+            set_brightness(group, brightness()/100)
+
+def torch(group=None, wind=5):
     # Simulates a flickering torch
+    #
+    # @param {group} A lamp group to affect
+    # @param {wind} How flickery to make the effect (little 1 - 10 lots)
     if group is None:
         group = args.group
     if args.param is not None:
         wind = int(args.param)
-    
-    def flicker():
-        return max(random.random() / wind, INTRA_COMMAND_SLEEP_TIME)
-        
-    def brightness():
-        return random.randint(5,100)
-    
-    set_color_rgb(group, (1,0.5,0))
-    while True:
-        set_brightness(group, brightness()/100)
-        sleep(flicker())
-    
+
+    _flickerit(group, wind, "torch")
+
+def faketv(group=None):
+    # Simulates a television
+    #
+    # @param {group} A lamp group to affect
+    if group is None:
+        group = args.group
+
+    _flickerit(group, 5, "tv")
+
+
 # MAIN LOGIC
 commands = {
     "on"            : turn_on,
@@ -296,6 +331,7 @@ commands = {
     "set_white"     : set_white,
     "set_color"     : set_color_rgb,
     "torch"         : torch,
+    "faketv"        : faketv,
     "white_sunrise" : white_sunrise
 }
 commands[args.macro]()  # Execute desired macro
