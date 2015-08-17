@@ -7,6 +7,7 @@ from __future__ import division # force integer divisions to return floats inste
 import sys, argparse        # command line arguments
 import socket               # socket communications
 from time import sleep      # sleep without doing anything for a while
+import time                 # keep track of time
 import colorsys             # rgb to hls conversions
 import math                 # mathematical operations
 import random               # generate random numbers
@@ -272,7 +273,7 @@ def white_sunrise(group=None):
     sleep(INTRA_COMMAND_SLEEP_TIME)
     turn_off(group)
         
-def _flickerit(group=None, wind=5, mode="color"):
+def _flickerit(group=None, wind=5, mode="color", duration=600):
     # Flickers the lamp
     #
     # @param {group} A lamp group to affect
@@ -287,19 +288,41 @@ def _flickerit(group=None, wind=5, mode="color"):
 
     def color():
         return (random.randint(0,100)/100, random.randint(0,100)/100, random.randint(0,100)/100)
-        
+    
+    timeout = time.time() + duration
+    
     if mode is "torch":
         set_color_rgb(group, (1,0.5,0))
         while True:
-            sleep(flicker())
-            set_brightness(group, brightness()/100)
+            if time.time() > timeout :
+                # Return to white and dim before turning off
+                sleep(INTRA_COMMAND_SLEEP_TIME)
+                set_white(group)
+                sleep(INTRA_COMMAND_SLEEP_TIME)
+                set_brightness(group, 0.5)
+                sleep(INTRA_COMMAND_SLEEP_TIME)
+                turn_off(group)
+                break;
+            else:
+                sleep(flicker())
+                set_brightness(group, brightness()/100)
     
     elif mode is "tv":
         while True:
-            sleep(flicker())
-            set_color_rgb(group, color())
-            sleep(flicker())
-            set_brightness(group, brightness()/100)
+            if time.time() > timeout :
+                # Return to white and dim before turning off
+                sleep(INTRA_COMMAND_SLEEP_TIME)
+                set_white(group)
+                sleep(INTRA_COMMAND_SLEEP_TIME)
+                set_brightness(group, 0.5)
+                sleep(INTRA_COMMAND_SLEEP_TIME)
+                turn_off(group)
+                break;
+            else:
+                sleep(flicker())
+                set_color_rgb(group, color())
+                sleep(flicker())
+                set_brightness(group, brightness()/100)
 
 def torch(group=None, wind=5):
     # Simulates a flickering torch
@@ -310,6 +333,10 @@ def torch(group=None, wind=5):
         group = args.group
     if args.param is not None:
         wind = int(args.param)
+    if args.duration is None:
+        duration = 60*3                 # default duration is 3 minutes
+    else:
+        duration = args.duration
 
     _flickerit(group, wind, "torch")
 
@@ -319,8 +346,12 @@ def faketv(group=None):
     # @param {group} A lamp group to affect
     if group is None:
         group = args.group
-
-    _flickerit(group, 5, "tv")
+    if args.duration is None:
+        duration = 60*45             # default duration is 45 minutes
+    else:
+        duration = args.duration
+        
+    _flickerit(group, 5, "tv", duration)
 
 
 # MAIN LOGIC
@@ -329,7 +360,7 @@ commands = {
     "off"           : turn_off,
     "brightness"    : set_brightness,
     "set_white"     : set_white,
-    "set_color"     : set_color_rgb,
+    "set_color"     : set_color,
     "torch"         : torch,
     "faketv"        : faketv,
     "white_sunrise" : white_sunrise
