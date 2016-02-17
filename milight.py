@@ -169,8 +169,12 @@ def set_color(group=None, percent=1):
     # hue ranges [0-255]
     if group is None:
         group = args.group
+    if args.param is not None:
+        percent = float(args.param)
+
     scaled=percent*255
     hue=chr(int(round(scaled)))
+    logger(2, "Setting color to %s%% (scaled: %s) (hue: %s)"%(percent, scaled, hue))
     bcast(SIMPLE_CODE_TEMPLATE.format(_get_on_prefix(group)))
     sleep(INTRA_COMMAND_SLEEP_TIME)
     bcast(COLOR_CODE_TEMPLATE.format(hue))
@@ -273,7 +277,7 @@ def white_sunrise(group=None):
     sleep(INTRA_COMMAND_SLEEP_TIME)
     turn_off(group)
         
-def _flickerit(group=None, wind=5, mode="color", duration=600):
+def _flickerit(group=None, wind=2, mode="color", duration=600):
     # Flickers the lamp
     #
     # @param {group} A lamp group to affect
@@ -286,8 +290,9 @@ def _flickerit(group=None, wind=5, mode="color", duration=600):
     def brightness():
         return random.randint(5,100)
 
-    def color():
-        return (random.randint(0,100)/100, random.randint(0,100)/100, random.randint(0,100)/100)
+    def tv_color():
+        # Return random colors, limited to blue-green hues
+        return (0, random.randint(0,100)/100, random.randint(0,100)/100) 
     
     timeout = time.time() + duration
     
@@ -320,7 +325,7 @@ def _flickerit(group=None, wind=5, mode="color", duration=600):
                 break;
             else:
                 sleep(flicker())
-                set_color_rgb(group, color())
+                set_color_rgb(group, tv_color())
                 sleep(flicker())
                 set_brightness(group, brightness()/100)
 
