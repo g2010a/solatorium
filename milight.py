@@ -11,10 +11,12 @@ import time                 # keep track of time
 import colorsys             # rgb to hls conversions
 import math                 # mathematical operations
 import random               # generate random numbers
+import os                   # OS-specific tasks
 
 # DEFAULTS
-UDP_IP="192.168.2.100" #this is the IP of the wifi bridge, or 255.255.255.255 for UDP broadcast
-UDP_PORT=8899
+UDP_IP=os.getenv("MILIGHT_IP_ADDRESS", "255.255.255.255") #this is the IP of the wifi bridge, or 255.255.255.255 for UDP broadcast
+UDP_PORT=os.getenv("MILIGHT_UDP_PORT", 8899)
+
 INTRA_COMMAND_SLEEP_TIME=1/10 # 100ms=100(1s/1000)
 
 # ARGUMENTS FROM COMMANDLINE
